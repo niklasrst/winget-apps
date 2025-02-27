@@ -22,16 +22,19 @@ func main() {
 	regPath := `SYSTEM\CurrentControlSet\Control\CloudDomainJoin\JoinInfo`
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, regPath, registry.READ)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error opening registry key:", err)
+		exitNoPrimaryUser()
 	}
 	defer k.Close()
 
 	subKeys, err := k.ReadSubKeyNames(-1)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error reading subkey names:", err)
+		exitNoPrimaryUser()
 	}
 	if len(subKeys) == 0 {
-		log.Fatal("No subkeys found")
+		log.Println("No subkeys found")
+		exitNoPrimaryUser()
 	}
 	joinID := subKeys[0]
 
@@ -39,13 +42,15 @@ func main() {
 	joinInfoPath := fmt.Sprintf(`%s\%s`, regPath, joinID)
 	k, err = registry.OpenKey(registry.LOCAL_MACHINE, joinInfoPath, registry.READ)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error opening join info registry key:", err)
+		exitNoPrimaryUser()
 	}
 	defer k.Close()
 
 	puUser, _, err := k.GetStringValue("UserEmail")
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error getting UserEmail value:", err)
+		exitNoPrimaryUser()
 	}
 
 	puUserSid := ""
@@ -72,7 +77,8 @@ func main() {
 func getCurrentUser() string {
 	out, err := exec.Command("powershell", "-Command", "(Get-Process -IncludeUserName -Name explorer | Select-Object UserName -Unique).UserName").Output()
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error getting current user:", err)
+		exitNoPrimaryUser()
 	}
 	return strings.TrimSpace(string(out))
 }
@@ -80,7 +86,13 @@ func getCurrentUser() string {
 func getSid(account string) string {
 	out, err := exec.Command("powershell", "-Command", fmt.Sprintf("(New-Object System.Security.Principal.NTAccount('%s')).Translate([System.Security.Principal.SecurityIdentifier]).Value", account)).Output()
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error getting SID for account:", err)
+		exitNoPrimaryUser()
 	}
 	return strings.TrimSpace(string(out))
+}
+
+func exitNoPrimaryUser() {
+	fmt.Println("No primary user on this device")
+	os.Exit(0)
 }

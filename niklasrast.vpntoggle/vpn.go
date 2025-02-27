@@ -10,7 +10,7 @@ import (
 func main() {
 	// /help parameter
 	if len(os.Args) > 1 && os.Args[1] == "/help" {
-		fmt.Println("This tool can toogle vpn on or off")
+		fmt.Println("This tool can toggle VPN on or off")
 		fmt.Println("Usage: vpntoggle")
 		return
 	}
@@ -23,7 +23,38 @@ func main() {
 		return
 	}
 
-	if strings.TrimSpace(string(output)) != "" {
+	if strings.TrimSpace(string(output)) == "" {
+		// Check if any VPN service exists
+		checkServiceExistsCmd := exec.Command("powershell", "Get-Service", "*vpn*")
+		output, err := checkServiceExistsCmd.Output()
+		if err != nil {
+			fmt.Printf("Error checking if VPN services exist: %v\n", err)
+			return
+		}
+
+		if strings.TrimSpace(string(output)) == "" {
+			fmt.Println("No VPN service to toggle.")
+			os.Exit(0)
+		} else {
+			// Start VPN services
+			startServiceCmd := exec.Command("powershell", "Get-Service", "*vpn*", "|", "Start-Service")
+			err := startServiceCmd.Run()
+			if err != nil {
+				fmt.Printf("Error starting services: %v\n", err)
+			} else {
+				fmt.Println("VPN services started successfully.")
+
+				// Launch VPN client
+				launchCmd := exec.Command("C:\\Program Files (x86)\\Cisco\\Cisco AnyConnect Secure Mobility Client\\vpnui.exe")
+				err := launchCmd.Start()
+				if err != nil {
+					fmt.Printf("Error launching VPN client: %v\n", err)
+				} else {
+					fmt.Println("VPN Client launched successfully.")
+				}
+			}
+		}
+	} else {
 		// Stop VPN services
 		stopServiceCmd := exec.Command("powershell", "Get-Service", "*vpn*", "|", "Stop-Service")
 		err := stopServiceCmd.Run()
@@ -40,24 +71,6 @@ func main() {
 			fmt.Printf("Error stopping processes: %v\n", err)
 		} else {
 			fmt.Println("VPN processes stopped successfully.")
-		}
-	} else {
-		// Start VPN services
-		startServiceCmd := exec.Command("powershell", "Get-Service", "*vpn*", "|", "Start-Service")
-		err := startServiceCmd.Run()
-		if err != nil {
-			fmt.Printf("Error starting services: %v\n", err)
-		} else {
-			fmt.Println("VPN services started successfully.")
-
-			// Launch vpn client
-			launchCmd := exec.Command("C:\\Program Files (x86)\\Cisco\\Cisco AnyConnect Secure Mobility Client\\vpnui.exe")
-			err := launchCmd.Start()
-			if err != nil {
-				fmt.Printf("Error launching vpn client: %v\n", err)
-			} else {
-				fmt.Println("VPN Client launched successfully.")
-			}
 		}
 	}
 }
